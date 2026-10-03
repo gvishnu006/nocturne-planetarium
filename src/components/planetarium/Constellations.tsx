@@ -1,47 +1,59 @@
 ﻿"use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { raDecToVec3 } from "@/lib/astro";
-import type { Constellation, Star } from "@/types/astro";
+import type { Constellation } from "@/types/astro";
+import { useSkyStore } from "@/lib/skyStore";
+import { observerBasis } from "@/lib/frame";
+import { labelDirection } from "@/lib/catalog";
 
-export function Constellations({ constellations, stars, radius = 121 }: { constellations: Constellation[]; stars: Star[]; radius?: number }) {
-  const group = useRef<THREE.Group>(null);
-  const starMap = useMemo(() => {
-    const m = new Map<string, { ra: number; dec: number }>();
-    for (const s of stars) m.set(s.id, { ra: s.ra, dec: s.dec });
-    return m;
-  }, [stars]);
+export function Constellations({ constellations }: { constellations: Constellation[] }) {
+  const { gmst, latDeg, lonDeg, lines } = useSkyStore();
+  const basis = useMemo(() => observerBasis(latDeg, lonDeg, gmst), [latDeg, lonDeg, gmst]);
 
-  const lines = useMemo(() => {
-    const mat = new THREE.LineBasicMaterial({ color: 0x7f92b3, transparent: true, opacity: 0.22 });
-    const geoms: THREE.BufferGeometry[] = [];
-    const meshes: THREE.Line[] = [];
+  const group = useMemo(() => {
+    const g = new THREE.Group();
+    if (!lines) return g;
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x7f95b9,
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: false,
+    });
+    const radius = 90.2;
     for (const c of constellations) {
       for (const pair of c.lines) {
-        const a = starMap.get(pair[0]);
-        const b = starMap.get(pair[1]);
+        const a = c.starMap?.get(pair[0]) || undefined;
+        const b = c.starMap?.get(pair[1]) || undefined;
         if (!a || !b) continue;
-        const g = new THREE.BufferGeometry();
+        const v1 = labelDirection(a.ra, a.dec);
+        const v2 = labelDirection(b.ra, b.dec);
+        const geom = new THREE.BufferGeometry();
         const p = new Float32Array(6);
-        const v1 = raDecToVec3(a.ra, a.dec, radius);
-        const v2 = raDecToVec3(b.ra, b.dec, radius);
-        p[0] = v1[0]; p[1] = v1[1]; p[2] = v1[2];
-        p[3] = v2[0]; p[4] = v2[1]; p[5] = v2[2];
-        g.setAttribute("position", new THREE.BufferAttribute(p, 3));
-        geoms.push(g);
-        meshes.push(new THREE.Line(g, mat));
+        p[0] = v1[0] * radius;
+        p[1] = v1[1] * radius;
+        p[2] = v1[2] * radius;
+        p[3] = v2[0] * radius;
+        p[4] = v2[1] * radius;
+        p[5] = v2[2] * radius;
+        geom.setAttribute("position", new THREE.BufferAttribute(p, 3));
+        g.add(new THREE.Line(geom, mat));
       }
     }
-    return meshes;
-  }, [constellations, starMap, radius]);
+    return g;
+  }, [constellations, lines]);
 
-  useFrame((_, delta) => {
-    if (group.current) {
-      group.current.rotation.y += delta * 0.0004;
-    }
+  useFrame(() => {
+    const m = observerBasis(latDeg, lonDeg, gmst);
+    group.children.forEach((child) => {
+      if (child instanceof THREE.Line) {
+        (child.material as THREE.LineBasicMaterial).opacity = lines ? 0.16 : 0;
+      }
+    });
+    group.matrix.identity();
+    group.applyMatrix4(new THREE.Matrix4().setFromMatrix3(m));
   });
 
-  return <group ref={group}>{lines.map((l, i) => <primitive key={i} object={l} />)}</group>;
+  return <primitive object={group} />;
 }
