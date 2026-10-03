@@ -1,66 +1,77 @@
 ﻿"use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { raDecToVec3, bvToColor, magToSize } from "@/lib/astro";
-import type { Star } from "@/types/astro";
-import starsVert from "@/shaders/stars.vert";
-import starsFrag from "@/shaders/stars.frag";
+import type { StarCatalog } from "@/lib/catalog";
+import { starVertex, starFragment } from "@/lib/starShaders";
+import { observerBasis } from "@/lib/frame";
+import { useSkyStore } from "@/lib/skyStore";
 
-export function StarField({ stars, radius = 120, minMag = 6.5 }: { stars: Star[]; radius?: number; minMag?: number }) {
-  const ref = useRef<THREE.Points>(null);
+type Props = {
+  catalog: StarCatalog;
+  radius?: number;
+  /** Degrees below the horizon at which stars are fully extinguished. */
+  /** fadeStart handled in-shader. */
+  size?: number;
+};
+
+export function StarField({ catalog, radius = 90, size = 2.6 }: Props) {
+  const points = useRef<THREE.Points>(null);
   const { gl } = useThree();
 
-  const { positions, colors, sizes } = useMemo(() => {
-    const pos = new Float32Array(stars.length * 3);
-    const col = new Float32Array(stars.length * 3);
-    const sz = new Float32Array(stars.length);
+  const geometry = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(catalog.eq, 3));
+    g.setAttribute("aMag", new THREE.BufferAttribute(catalog.mag, 1));
+    g.setAttribute("aBV", new THREE.BufferAttribute(catalog.bv, 1));
+    g.setAttribute("aPhase", new THREE.BufferAttribute(catalog.phase, 1));
+    // The field is drawn at a fixed radius; culling against the default
+    // bounding sphere would clip it as soon as the camera moves.
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), radius * 1.05);
+    return g;
+  }, [catalog, radius]);
 
-    for (let i = 0; i < stars.length; i++) {
-      const s = stars[i];
-      const [x, y, z] = raDecToVec3(s.ra, s.dec, radius);
-      pos[i * 3] = x;
-      pos[i * 3 + 1] = y;
-      pos[i * 3 + 2] = z;
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uBasis: { value: new THREE.Matrix3() },
+          uLimitMag: { value: 6.5 },
+          uExposure: { value: 1 },
+          uTime: { value: 0 },
+          uTwinkle: { value: 1 },
+          uPixelRatio: { value: 1 },
+          uSize: { value: size },
+          uRadius: { value: radius },
+          uOpacity: { value: 1 },
+        },
+        vertexShader: starVertex,
+        fragmentShader: starFragment,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        // Additive is right for light sources: stars emit, they do not occlude.
+        blending: THREE.AdditiveBlending,
+      }),
+    [radius, size]
+  );
 
-      const c = bvToColor(s.bv);
-      const cc = new THREE.Color(c);
-      col[i * 3] = cc.r;
-      col[i * 3 + 1] = cc.g;
-      col[i * 3 + 2] = cc.b;
+  useEffect(() => () => {
+    geometry.dispose();
+    material.dispose();
+  }, [geometry, material]);
 
-      sz[i] = magToSize(s.mag, 0.8, 3.2, minMag);
-    }
-    return { positions: pos, colors: col, sizes: sz };
-  }, [stars, radius, minMag]);
+  useFrame((state) => {
+    const u = material.uniforms;
+    const { latDeg, lonDeg, gmst, twinkle, exposure } = useSkyStore.getState();
 
-  useFrame((_, delta) => {
-    if (ref.current) {
-      ref.current.rotation.y += delta * 0.0005; // slow natural drift
-    }
+    u.uBasis.value.copy(observerBasis(latDeg, lonDeg, gmst));
+    u.uTime.value = state.clock.elapsedTime;
+    u.uTwinkle.value = twinkle;
+    u.uExposure.value = exposure;
+    u.uPixelRatio.value = gl.getPixelRatio();
   });
 
-  const geom = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    g.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
-    return g;
-  }, [positions, colors, sizes]);
-
-  const mat = useMemo(() => {
-    const m = new THREE.ShaderMaterial({
-      uniforms: {},
-      vertexShader: starsVert,
-      fragmentShader: starsFrag,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      vertexColors: false,
-    });
-    return m;
-  }, []);
-
-  return <points ref={ref} geometry={geom} material={mat} />;
+  return <primitive object={new THREE.Points(geometry, material)} ref={points} />;
 }
