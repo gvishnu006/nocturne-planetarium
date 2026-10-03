@@ -1,19 +1,24 @@
 ﻿import type { Metadata } from "next";
-import { Inter, EB_Garamond } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import { Nav } from "@/components/nav";
+import { SkyControls } from "@/components/SkyControls";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const garamond = EB_Garamond({ subsets: ["latin"], variable: "--font-garamond" });
 
 export const metadata: Metadata = {
   title: "Nocturne Planetarium",
-  description: "Real star field with slow sidereal rotation on scroll",
+  description: "Real night sky with accurate star density and scroll-driven sidereal rotation.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${garamond.variable} antialiased bg-[#03040a] text-neutral-100`}>{children}</body>
+      <body className={`${inter.variable} antialiased bg-[#03040a] text-neutral-100`}>
+        <Nav />
+        {children}
+        <SkyControls />
+      </body>
     </html>
   );
 }
