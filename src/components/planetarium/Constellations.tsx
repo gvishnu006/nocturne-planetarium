@@ -24,8 +24,8 @@ export function Constellations({ constellations }: { constellations: Constellati
     const radius = 90.2;
     for (const c of constellations) {
       for (const pair of c.lines) {
-        const a = c.starMap?.get(pair[0]) || undefined;
-        const b = c.starMap?.get(pair[1]) || undefined;
+        const a = (c as any).starMap?.[pair[0]];
+        const b = (c as any).starMap?.[pair[1]];
         if (!a || !b) continue;
         const v1 = labelDirection(a.ra, a.dec);
         const v2 = labelDirection(b.ra, b.dec);

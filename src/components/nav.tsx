@@ -26,7 +26,7 @@ export function Nav() {
               <Link
                 key={href}
                 href={href}
-                className={	ext-[10px] uppercase tracking-[0.25em] transition-colors }
+                className={(active ? "text-neutral-100" : "text-neutral-400 hover:text-neutral-100") + " text-[10px] uppercase tracking-[0.25em] transition-colors"}
               >
                 {label}
               </Link>

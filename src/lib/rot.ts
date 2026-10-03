@@ -1,3 +1,4 @@
+﻿import * as THREE from "three";
 import { observerBasis } from "./frame";
 
 export function buildLocalRotation(
@@ -5,6 +6,5 @@ export function buildLocalRotation(
   lonDeg: number,
   gmst: number
 ): THREE.Matrix3 {
-  // left as-is, computed on demand
   return observerBasis(latDeg, lonDeg, gmst);
 }

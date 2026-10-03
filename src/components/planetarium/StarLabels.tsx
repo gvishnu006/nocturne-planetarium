@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useSkyStore } from "@/lib/skyStore";
 import { observerBasis } from "@/lib/frame";
-import labelsData from "../../public/data/stars.labels.json";
+import labelsData from "../../../public/data/stars.labels.json";
 import { labelDirection, labelText, type StarLabel } from "@/lib/catalog";
 import { useMemo } from "react";
 

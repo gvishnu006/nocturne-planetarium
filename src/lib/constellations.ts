@@ -1,0 +1,1 @@
+export type Constellation={name:string;abbrev:string;lines:string[][]};export const constellations:Constellation[]=[];
