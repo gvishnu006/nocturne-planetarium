@@ -1,0 +1,22 @@
+{
+  "name": "deep-night",
+  "bg": {
+    "top": "#050814",
+    "mid": "#050816",
+    "bottom": "#040510"
+  },
+  "airglow": {
+    "strength": 0.04,
+    "color": "#1a2a4f"
+  },
+  "milkyWay": {
+    "enabled": true,
+    "strength": 0.18,
+    "color": "#7a8fbf"
+  },
+  "stars": {
+    "baseSize": 0.8,
+    "maxSize": 3.2,
+    "minMag": 6.5
+  }
+}
